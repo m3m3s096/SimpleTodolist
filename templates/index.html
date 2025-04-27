@@ -1,1 +1,652 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToDo List</title>
+    <style>
+        /* Material Design Styles */
+        body {
+            margin: 0;
+            background-color: #f5f5f5;
+            font-family: 'Roboto', Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: pan-y;
+        }
 
+        .header {
+            width: 100vw;
+            height: 64px;
+            background-color: #6200ee;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .dropdown-menu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+            z-index: 1000;
+            width: 80%;
+            max-width: 400px;
+            opacity: 0;
+            height:35vh;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+        }
+
+        .dropdown-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #6200ee;
+        }
+
+        #show-dropdown-menu {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px;
+            background-color: #6200ee;
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            font-size: 24px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+            outline: none;
+            z-index: 1001;
+        }
+
+        #show-dropdown-menu:hover {
+            background-color: #3700b3;
+        }
+
+        form input, form select, form button {
+            padding: 12px;
+            margin: 8px 0;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        form button {
+            background-color: #6200ee;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        form button:hover {
+            background-color: #3700b3;
+        }
+
+        .task-container {
+            width: 90%;
+            max-width: 600px;
+            padding: 0;
+            margin-top: 16px;
+        }
+
+        .task-list {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            list-style-type: none;
+        }
+
+        .task-item {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            user-select: none;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+        }
+
+        /* Цветовые схемы для разных приоритетов */
+        .task-item[data-priority="high"] {
+            background: linear-gradient(to right, #ffebee, #ffcdd2);
+            border-left: 5px solid #d32f2f;
+        }
+
+        .task-item[data-priority="medium"] {
+            background: linear-gradient(to right, #fff8e1, #ffecb3);
+            border-left: 5px solid #ffa000;
+        }
+
+        .task-item[data-priority="low"] {
+            background: linear-gradient(to right, #e8f5e9, #c8e6c9);
+            border-left: 5px solid #388e3c;
+        }
+
+        .task-content {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: transform 0.2s ease-out;
+            position: relative;
+            z-index: 1;
+            cursor: grab;
+        }
+
+        .task-content:active {
+            cursor: grabbing;
+        }
+
+        .task-actions {
+            position: absolute;
+            right: -100px;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #d32f2f;
+            color: white;
+            width: 100px;
+            transition: right 0.2s ease-out;
+        }
+
+        .task-item.swiped .task-actions {
+            right: 0;
+        }
+
+        .task-item.swiped .task-content {
+            transform: translateX(-100px);
+        }
+
+        .task-checkbox {
+            margin-right: 16px;
+        }
+
+        .task-text {
+            flex-grow: 1;
+            pointer-events: none;
+            font-size: 16px;
+        }
+
+        .task-due-date {
+            color: #616161;
+            font-size: 14px;
+            margin-left: 16px;
+            pointer-events: none;
+        }
+
+        .complete-btn {
+            margin-right: 16px;
+            color: #6200ee;
+            text-decoration: none;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .priority {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .priority-high {
+            background-color: #d32f2f;
+        }
+
+        .priority-medium {
+            background-color: #ffa000;
+        }
+
+        .priority-low {
+            background-color: #388e3c;
+        }
+
+        .priority-selector {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+        }
+
+        .priority-option {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .priority-option.selected {
+            background-color: #e8f5e9;
+            font-weight: bold;
+        }
+
+        .settings-btn {
+            position: absolute;
+            top: 50%;
+            right: 16px;
+            transform: translateY(-50%);
+            background-color: #6200ee;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.9;
+            transition: opacity 0.3s ease;
+        }
+
+        .settings-btn:hover {
+            opacity: 1;
+        }
+
+        .task-item.swiped .settings-btn {
+            display: none;
+        }
+
+        /* Material Dialog Styles */
+        .dialog-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .dialog-container.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .dialog-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .dialog {
+            position: relative;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2), 0 24px 38px 3px rgba(0,0,0,0.14), 0 9px 46px 8px rgba(0,0,0,0.12);
+            width: 90%;
+            max-width: 400px;
+            z-index: 1;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .dialog-container.active .dialog {
+            transform: scale(1);
+        }
+
+        .dialog-title {
+            padding: 24px 24px 0;
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .dialog-content {
+            padding: 20px 24px;
+            font-size: 16px;
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .dialog-actions {
+            padding: 8px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .dialog-button {
+            min-width: 64px;
+            padding: 8px 16px;
+            margin: 0 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .dialog-button.cancel {
+            color: #6200ee;
+            background-color: transparent;
+        }
+
+        .dialog-button.confirm {
+            background-color: #6200ee;
+            color: white;
+        }
+
+        .dialog-button:hover {
+            background-color: rgba(98, 0, 238, 0.1);
+        }
+
+        .dialog-button.confirm:hover {
+            background-color: #3700b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">ToDo List</div>
+    <button id="show-dropdown-menu">+</button>
+    <div class="overlay" id="overlay"></div>
+    <div class="dropdown-menu" id="dropdown-menu">
+        <span class="close-btn" id="close-btn">×</span>
+        <br>
+        <br>
+        <form action="/add" method="post" id="task-form">
+            <input type="text" name="task" placeholder="Новая задача" required><br>
+            <input type="date" name="due_date"><br>
+            <div class="priority-selector">
+                <div class="priority-option" data-priority="low">Низкий</div>
+                <div class="priority-option" data-priority="medium">Средний</div>
+                <div class="priority-option selected" data-priority="high">Высокий</div>
+            </div>
+            <input type="hidden" name="priority" id="priority-input" value="high">
+            <button type="submit">Добавить</button>
+        </form>
+    </div>
+    <div class="task-container">
+        <ul class="task-list">
+            {% for todo in todos %}
+            <li class="task-item" data-id="{{ todo.id }}" data-priority="{{ todo.priority }}">
+                <div class="task-content">
+                    <input type="checkbox" class="task-checkbox" {% if todo.done %}checked{% endif %}>
+                    <span class="priority priority-{{ todo.priority }}"></span>
+                    <div class="task-text">
+                        {{ todo.task }}
+                        {% if todo.due_date %}
+                        <span class="task-due-date">(до: {{ todo.due_date }})</span>
+                        {% endif %}
+                    </div>
+                    <button class="settings-btn" title="Настройки">&#9881;</button>
+                </div>
+                <div class="task-actions">
+                    Удалить
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Material Dialog -->
+    <div class="dialog-container" id="dialog-container">
+        <div class="dialog-overlay" id="dialog-overlay"></div>
+        <div class="dialog">
+            <h2 class="dialog-title">Подтверждение</h2>
+            <div class="dialog-content">Вы уверены, что хотите удалить эту задачу?</div>
+            <div class="dialog-actions">
+                <button class="dialog-button cancel" id="dialog-cancel">Отмена</button>
+                <button class="dialog-button confirm" id="dialog-confirm">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Модальное окно
+        const showBtn = document.getElementById('show-dropdown-menu');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const overlay = document.getElementById('overlay');
+        const closeBtn = document.getElementById('close-btn');
+
+        showBtn.addEventListener('click', () => {
+            dropdownMenu.classList.add('active');
+            overlay.classList.add('active');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            dropdownMenu.classList.remove('active');
+            overlay.classList.remove('active');
+        });
+
+        overlay.addEventListener('click', () => {
+            dropdownMenu.classList.remove('active');
+            overlay.classList.remove('active');
+        });
+
+        // Priority selection in form
+        const priorityOptions = document.querySelectorAll('.priority-selector .priority-option');
+        const priorityInput = document.getElementById('priority-input');
+
+        priorityOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                priorityOptions.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                priorityInput.value = this.dataset.priority;
+            });
+        });
+
+        // Material Dialog
+        const dialogContainer = document.getElementById('dialog-container');
+        const dialogOverlay = document.getElementById('dialog-overlay');
+        const dialogCancel = document.getElementById('dialog-cancel');
+        const dialogConfirm = document.getElementById('dialog-confirm');
+        let currentTaskToDelete = null;
+
+        function showDialog(taskId) {
+            currentTaskToDelete = taskId;
+            dialogContainer.classList.add('active');
+        }
+
+        function hideDialog() {
+            dialogContainer.classList.remove('active');
+            currentTaskToDelete = null;
+        }
+
+        dialogOverlay.addEventListener('click', hideDialog);
+        dialogCancel.addEventListener('click', hideDialog);
+        dialogConfirm.addEventListener('click', () => {
+            if (currentTaskToDelete) {
+                window.location.href = `/delete/${currentTaskToDelete}`;
+            }
+            hideDialog();
+        });
+
+        // Свайп для удаления
+        const taskItems = document.querySelectorAll('.task-item');
+        taskItems.forEach(item => {
+            const content = item.querySelector('.task-content');
+            const actions = item.querySelector('.task-actions');
+            let startX, currentX, isSwiping = false;
+            let startTime;
+
+            const handleStart = (clientX) => {
+                if (item.classList.contains('swiped')) {
+                    resetSwipe();
+                    return;
+                }
+                startX = clientX;
+                currentX = clientX;
+                isSwiping = true;
+                startTime = Date.now();
+                content.style.transition = 'none';
+                actions.style.transition = 'none';
+            };
+
+            const handleMove = (clientX) => {
+                if (!isSwiping) return;
+                currentX = clientX;
+                const diff = startX - currentX;
+                if (diff > 0) { // Свайп влево
+                    const translateX = Math.min(diff, 100);
+                    content.style.transform = `translateX(-${translateX}px)`;
+                    actions.style.right = `${translateX - 100}px`;
+                } else if (diff < -10) { // Свайп вправо
+                    content.style.transform = 'translateX(0)';
+                    actions.style.right = '-100px';
+                }
+            };
+
+            const handleEnd = () => {
+                if (!isSwiping) return;
+                isSwiping = false;
+                const diff = startX - currentX;
+                const duration = Date.now() - startTime;
+                const velocity = Math.abs(diff) / Math.max(duration, 1);
+                content.style.transition = 'transform 0.2s ease-out';
+                actions.style.transition = 'right 0.2s ease-out';
+                if (diff > 50 || (diff > 20 && velocity > 0.3)) {
+                    item.classList.add('swiped');
+                    content.style.transform = 'translateX(-100px)';
+                    actions.style.right = '0';
+                    setTimeout(() => {
+                        showDialog(item.dataset.id);
+                    }, 300);
+                } else {
+                    resetSwipe();
+                }
+            };
+
+            const resetSwipe = () => {
+                item.classList.remove('swiped');
+                content.style.transform = '';
+                actions.style.right = '-100px';
+            };
+
+            // Touch events
+            content.addEventListener('touchstart', (e) => {
+                handleStart(e.touches[0].clientX);
+            }, { passive: true });
+
+            content.addEventListener('touchmove', (e) => {
+                handleMove(e.touches[0].clientX);
+                if (isSwiping) e.preventDefault();
+            }, { passive: false });
+
+            content.addEventListener('touchend', handleEnd, { passive: true });
+
+            // Mouse events
+            content.addEventListener('mousedown', (e) => {
+                handleStart(e.clientX);
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                handleMove(e.clientX);
+            });
+
+            document.addEventListener('mouseup', handleEnd);
+
+            // Click to reset swipe
+            content.addEventListener('click', (e) => {
+                if (item.classList.contains('swiped')) {
+                    e.preventDefault();
+                    resetSwipe();
+                }
+            });
+
+            // Cancel swipe on scroll
+            window.addEventListener('scroll', () => {
+                if (isSwiping) {
+                    resetSwipe();
+                    isSwiping = false;
+                }
+            });
+        });
+
+        // Checkbox handling
+        const checkboxes = document.querySelectorAll('.task-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const taskId = this.closest('.task-item').dataset.id;
+                window.location.href = `/complete/${taskId}`;
+            });
+        });
+
+        // Настройка кнопки редактирования
+        const settingsBtns = document.querySelectorAll('.settings-btn');
+        settingsBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Предотвращаем распространение события
+                const taskItem = btn.closest('.task-item');
+                const taskId = taskItem.dataset.id;
+                const taskText = taskItem.querySelector('.task-text').innerText.split('(')[0].trim();
+                const dueDate = taskItem.dataset.dueDate || '';
+                const priority = taskItem.dataset.priority || 'low';
+
+                // Заполняем форму модального окна
+                const form = document.querySelector('#dropdown-menu form');
+                form.setAttribute('action', `/update/${taskId}`);
+                form.querySelector('input[name="task"]').value = taskText;
+                form.querySelector('input[name="due_date"]').value = dueDate;
+                form.querySelector('#priority-input').value = priority;
+
+                // Выбираем соответствующий приоритет
+                document.querySelectorAll('.priority-option').forEach(option => {
+                    option.classList.toggle('selected', option.dataset.priority === priority);
+                });
+
+                // Показываем модальное окно
+                dropdownMenu.classList.add('active');
+                overlay.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
